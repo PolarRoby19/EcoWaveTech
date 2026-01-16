@@ -1,33 +1,46 @@
+export const config = {
+  api: {
+    bodyParser: false, // Disabilitiamo il parser automatico per gestire i dati grezzi dell'immagine
+  },
+};
+
 export default async function handler(req, res) {
-    // 1. Accetta solo richieste POST (invio immagini)
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Metodo non consentito' });
     }
 
-    // 2. Recupera le variabili che hai impostato su Vercel
-    const HF_TOKEN = process.env.HF_TOKEN; 
-    // Sostituisci con il tuo username e nome repo di Hugging Face
+    const HF_TOKEN = process.env.HF_TOKEN;
     const MODEL_ID = "PolarRoby09/ecowave";
 
     try {
-        // 3. Inoltra l'immagine a Hugging Face usando il Token segreto
+        // Leggiamo i dati dell'immagine come chunk e creiamo un Buffer
+        const chunks = [];
+        for await (const chunk of req) {
+            chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
         const response = await fetch(
             `https://api-inference.huggingface.co/models/${MODEL_ID}`,
             {
-                headers: { 
+                headers: {
                     "Authorization": `Bearer ${HF_TOKEN}`,
-                    "Content-Type": "application/octet-stream"
+                    "Content-Type": "application/octet-stream",
                 },
                 method: "POST",
-                body: req.body, // L'immagine grezza ricevuta dal sito
+                body: buffer,
             }
         );
 
         const data = await response.json();
-        
-        // 4. Restituisce il risultato al tuo sito
+
+        if (!response.ok) {
+            return res.status(response.status).json(data);
+        }
+
         return res.status(200).json(data);
     } catch (error) {
-        return res.status(500).json({ error: "Errore nella comunicazione con l'IA" });
+        console.error("Errore:", error);
+        return res.status(500).json({ error: "Errore interno durante l'analisi" });
     }
 }
