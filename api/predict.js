@@ -4,7 +4,7 @@ export const config = {
 
 export default async function handler(req, res) {
     const HF_TOKEN = process.env.HF_TOKEN;
-    const MODEL_ID = "PolarRoby09/ecowave";
+    const MODEL_ID = "PolarRoby09/EcoWave-Vercel";
 
     try {
         const chunks = [];
