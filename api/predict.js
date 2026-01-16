@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     // 2. Recupera le variabili che hai impostato su Vercel
     const HF_TOKEN = process.env.HF_TOKEN; 
     // Sostituisci con il tuo username e nome repo di Hugging Face
-    const MODEL_ID = "IL_TUO_USERNAME_HF/IL_TUO_REPO_HF"; 
+    const MODEL_ID = "PolarRoby19/EcoWaveTech";
 
     try {
         // 3. Inoltra l'immagine a Hugging Face usando il Token segreto
