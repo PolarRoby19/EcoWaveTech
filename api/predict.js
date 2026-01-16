@@ -1,6 +1,6 @@
 export const config = {
   api: {
-    bodyParser: false, // Disabilitiamo il parser automatico per gestire i dati grezzi dell'immagine
+    bodyParser: false, // Necessario per leggere l'immagine come stream grezzo
   },
 };
 
@@ -12,14 +12,20 @@ export default async function handler(req, res) {
     const HF_TOKEN = process.env.HF_TOKEN;
     const MODEL_ID = "PolarRoby09/ecowave";
 
+    // Controllo sicurezza: il token esiste?
+    if (!HF_TOKEN) {
+        return res.status(500).json({ error: "Configurazione mancante: HF_TOKEN non trovato su Vercel" });
+    }
+
     try {
-        // Leggiamo i dati dell'immagine come chunk e creiamo un Buffer
+        // Leggiamo i dati dell'immagine
         const chunks = [];
         for await (const chunk of req) {
             chunks.push(chunk);
         }
         const buffer = Buffer.concat(chunks);
 
+        // Chiamata a Hugging Face
         const response = await fetch(
             `https://api-inference.huggingface.co/models/${MODEL_ID}`,
             {
@@ -35,12 +41,13 @@ export default async function handler(req, res) {
         const data = await response.json();
 
         if (!response.ok) {
+            // Passiamo l'errore originale di Hugging Face per capire cosa succede
             return res.status(response.status).json(data);
         }
 
         return res.status(200).json(data);
     } catch (error) {
-        console.error("Errore:", error);
-        return res.status(500).json({ error: "Errore interno durante l'analisi" });
+        console.error("ERRORE SERVERLESS:", error);
+        return res.status(500).json({ error: "Errore durante l'invio all'IA: " + error.message });
     }
 }
