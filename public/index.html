@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoWave AI | Classificatore Intelligente</title>
+    <style>
+        :root {
+            --primary-color: #2e7d32;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card-bg);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        .btn-upload {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 50px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .btn-upload:active {
+            transform: scale(0.95);
+        }
+
+        #preview {
+            max-width: 100%;
+            border-radius: 12px;
+            margin-top: 25px;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .results-container {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: left;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9f9f9;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .label {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .prob {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .loader {
+            display: none;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>EcoWave AI</h1>
+    <p>Classificazione immagini in tempo reale</p>
+
+    <label for="imageInput" class="upload-area" id="dropZone">
+        <div id="uploadText">Trascina un'immagine o clicca qui</div>
+        <input type="file" id="imageInput" accept="image/*">
+    </label>
+
+    <div class="loader" id="loader"></div>
+    <img id="preview" alt="Anteprima">
+
+    <div id="resultsArea" class="results-container" style="display: none;">
+        <h3 style="margin-top: 0;">Analisi completa:</h3>
+        <div id="predictions"></div>
+    </div>
+</div>
+
+<script>
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const loader = document.getElementById('loader');
+    const resultsArea = document.getElementById('resultsArea');
+    const predictionsDiv = document.getElementById('predictions');
+
+    imageInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Visualizza anteprima
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            preview.src = event.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+
+        // Reset interfaccia
+        resultsArea.style.display = 'none';
+        predictionsDiv.innerHTML = '';
+        loader.style.display = 'block';
+
+        try {
+            // Chiamata alla Serverless Function su Vercel
+            const response = await fetch("/api/predict", {
+                method: "POST",
+                body: file,
+            });
+
+            const data = await response.json();
+            loader.style.display = 'none';
+
+            if (response.ok) {
+                resultsArea.style.display = 'block';
+                
+                // Gestione risposta (array di oggetti {label, score})
+                if (Array.isArray(data)) {
+                    data.forEach(item => {
+                        const percentage = (item.score * 100).toFixed(1);
+                        const row = document.createElement('div');
+                        row.className = 'result-item';
+                        row.innerHTML = `
+                            <span class="label">${item.label}</span>
+                            <span class="prob">${percentage}%</span>
+                        `;
+                        predictionsDiv.appendChild(row);
+                    });
+                } else {
+                    predictionsDiv.innerHTML = `<p style="color:red">Errore: ${data.error || "Formato risposta non valido"}</p>`;
+                }
+            } else {
+                predictionsDiv.innerHTML = `<p style="color:red">Errore server: ${data.error || "Riprova tra un istante"}</p>`;
+                resultsArea.style.display = 'block';
+            }
+        } catch (error) {
+            loader.style.display = 'none';
+            alert("Errore di connessione: assicurati che il deploy sia completato.");
+        }
+    };
+</script>
+
+</body>
+</html>
