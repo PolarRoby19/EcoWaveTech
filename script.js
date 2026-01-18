@@ -1,77 +1,62 @@
 let session;
 let fishClasses = [];
 
-const predictionDiv = document.getElementById('prediction');
-const imagePreview = document.getElementById('imagePreview');
-const resultContainer = document.getElementById('result-container');
-
 async function init() {
+    const predictionDiv = document.getElementById('prediction');
     try {
-        console.log("Inizio caricamento avanzato...");
-
-        // 1. Carica Classi
+        console.log("1. Caricamento nomi classi...");
         const csvRes = await fetch('classes.csv');
         const csvText = await csvRes.text();
         fishClasses = csvText.split('\n').map(s => s.trim()).filter(s => s !== "");
 
-        // 2. Carica i due file del modello come BLOB
-        console.log("Scaricamento file binari...");
-        const [modelRes, dataRes] = await Promise.all([
-            fetch('./model/model.onnx'),
-            fetch('./model/model.onnx.data')
-        ]);
+        console.log("2. Scaricamento pesi (model.onnx.data)...");
+        const dataRes = await fetch('./model/model.onnx.data');
+        if (!dataRes.ok) throw new Error("File model.onnx.data non trovato");
+        const dataBuffer = await dataRes.arrayBuffer();
 
-        if (!modelRes.ok || !dataRes.ok) throw new Error("File del modello non trovati nella cartella /model");
+        console.log("3. Scaricamento struttura (model.onnx)...");
+        const modelRes = await fetch('./model/model.onnx');
+        if (!modelRes.ok) throw new Error("File model.onnx non trovato");
+        const modelBuffer = await modelRes.arrayBuffer();
 
-        const modelBlob = await modelRes.blob();
-        const dataBlob = await dataRes.blob();
-
-        // 3. Creazione filesystem virtuale (Trick per MountedFiles)
-        // Creiamo dei file virtuali che ONNX Runtime può vedere
-        const modelUrl = URL.createObjectURL(modelBlob);
-        const dataUrl = URL.createObjectURL(dataBlob);
-
-        console.log("Inizializzazione sessione WASM...");
+        console.log("4. Iniezione dati e creazione sessione...");
         
-        // Usiamo l'opzione manuale per i dati esterni
-        session = await ort.InferenceSession.create(await modelBlob.arrayBuffer(), {
+        // Questo oggetto mappa il nome del file interno al buffer scaricato
+        const externalData = [
+            {
+                data: new Uint8Array(dataBuffer),
+                path: 'model.onnx.data' // Deve essere identico al nome cercato dal modello
+            }
+        ];
+
+        session = await ort.InferenceSession.create(new Uint8Array(modelBuffer), {
             executionProviders: ['wasm'],
-            externalData: [
-                {
-                    data: await dataBlob.arrayBuffer(),
-                    path: "model.onnx.data" // Deve essere ESATTAMENTE il nome cercato dal modello
-                }
-            ]
+            externalData: externalData
         });
 
         console.log("✅ SISTEMA PRONTO!");
-        predictionDiv.innerText = "Sistema pronto per l'analisi.";
-        
-        // Pulizia memoria
-        URL.revokeObjectURL(modelUrl);
-        URL.revokeObjectURL(dataUrl);
-
+        predictionDiv.innerText = "Sistema pronto.";
     } catch (e) {
-        console.error("Errore irreversibile:", e);
+        console.error("Errore critico:", e);
         predictionDiv.innerText = "Errore: " + e.message;
     }
 }
 
-// Logica di predizione (Resta invariata ma inclusa per completezza)
+// --- Logica di analisi ---
 document.getElementById('predictBtn').addEventListener('click', async () => {
     if (!session) return;
+    const predictionDiv = document.getElementById('prediction');
     predictionDiv.innerText = "Analisi...";
-    resultContainer.classList.remove('hidden');
 
     try {
-        const tensor = await preprocess(imagePreview);
+        const tensor = await preprocess(document.getElementById('imagePreview'));
         const results = await session.run({ input: tensor });
         const output = results.output.data;
         const maxIdx = output.indexOf(Math.max(...output));
-        predictionDiv.innerText = fishClasses[maxIdx] || "Sconosciuto";
+        predictionDiv.innerText = fishClasses[maxIdx] || "ID: " + maxIdx;
     } catch (e) {
         console.error(e);
-        predictionDiv.innerText = "Errore analisi.";
+        predictionDiv.innerText = "Errore durante l'analisi.";
     }
 });
 
@@ -94,7 +79,11 @@ document.getElementById('imageUpload').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = (ev) => { imagePreview.src = ev.target.result; document.getElementById('preview-container').classList.remove('hidden'); };
+        reader.onload = (ev) => {
+            const img = document.getElementById('imagePreview');
+            img.src = ev.target.result;
+            document.getElementById('preview-container').classList.remove('hidden');
+        };
         reader.readAsDataURL(file);
     }
 });
