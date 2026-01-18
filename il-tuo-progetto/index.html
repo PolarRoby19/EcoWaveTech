@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoWave - Classificazione Pesci</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>EcoWave AI</h1>
+        <p>Carica un'immagine per identificare la specie</p>
+
+        <div class="upload-section">
+            <input type="file" id="imageUpload" accept="image/*" hidden>
+            <label for="imageUpload" class="btn-upload">Scegli Immagine</label>
+        </div>
+
+        <div id="preview-container" class="hidden">
+            <img id="imagePreview" src="#" alt="Anteprima">
+            <canvas id="canvas" width="256" height="72" class="hidden"></canvas>
+            <button id="predictBtn" class="btn-predict">Analizza Specie</button>
+        </div>
+
+        <div id="result-container" class="hidden">
+            <h3>Risultato:</h3>
+            <div id="prediction">Attendere...</div>
+            <div id="confidence"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
