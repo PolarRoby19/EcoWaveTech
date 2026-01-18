@@ -58,3 +58,31 @@ p { color: #7f8c8d; }
     font-weight: bold;
     color: #27ae60;
 }
+
+/* Stile per il tasto Reset */
+#resetBtn {
+    background-color: #6c757d; /* Grigio professionale */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: background-color 0.3s;
+}
+
+#resetBtn:hover {
+    background-color: #5a6268;
+}
+
+/* Stile dinamico per il testo della predizione */
+#prediction {
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+/* Effetto per il tasto disabilitato */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
