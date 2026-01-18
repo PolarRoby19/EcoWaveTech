@@ -12,24 +12,24 @@ async function init() {
         const csvText = await csvRes.text();
         fishClasses = csvText.split('\n').map(s => s.trim()).filter(s => s !== "");
 
-        console.log("2. Scaricamento file binari dalla root...");
+        console.log("2. Scaricamento file del modello (senza sottocartelle)...");
         
-        // Abbiamo rimosso "./model/" dai percorsi
+        // Carichiamo i file dalla stessa cartella dello script
         const [modelRes, dataRes] = await Promise.all([
             fetch('model.onnx'),
             fetch('model.onnx.data')
         ]);
 
         if (!modelRes.ok || !dataRes.ok) {
-            throw new Error(`File non trovati. Stato ONNX: ${modelRes.status}, Stato DATA: ${dataRes.status}`);
+            throw new Error(`File mancanti. Stato ONNX: ${modelRes.status}, Stato DATA: ${dataRes.status}`);
         }
 
         const modelBuffer = await modelRes.arrayBuffer();
         const dataBuffer = await dataRes.arrayBuffer();
 
-        console.log("3. Iniezione dati pesi e creazione sessione...");
+        console.log("3. Iniezione pesi e creazione sessione...");
         
-        // Usiamo externalData per risolvere l'errore MountedFiles
+        // Questo risolve l'errore "Module.MountedFiles" caricando i pesi in memoria
         session = await ort.InferenceSession.create(new Uint8Array(modelBuffer), {
             executionProviders: ['wasm'],
             externalData: [
@@ -49,9 +49,12 @@ async function init() {
     }
 }
 
-// --- Gestione Analisi ---
+// --- Analisi Immagine ---
 document.getElementById('predictBtn').addEventListener('click', async () => {
-    if (!session) return;
+    if (!session) {
+        alert("Il modello non è ancora pronto!");
+        return;
+    }
     predictionDiv.innerText = "Analisi...";
     resultContainer.classList.remove('hidden');
 
@@ -61,7 +64,7 @@ document.getElementById('predictBtn').addEventListener('click', async () => {
         const output = results.output.data;
         const maxIdx = output.indexOf(Math.max(...output));
         
-        const fishName = fishClasses[maxIdx] || "ID: " + maxIdx;
+        const fishName = fishClasses[maxIdx] || "Specie ID: " + maxIdx;
         predictionDiv.innerText = fishName;
     } catch (e) {
         console.error(e);
