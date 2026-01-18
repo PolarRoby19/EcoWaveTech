@@ -15,39 +15,39 @@ const resultContainer = document.getElementById('result-container');
  */
 async function init() {
     try {
-        console.log("Inizializzazione sistema...");
-
-        // 1. Carica i nomi delle classi dal CSV
+        console.log("1. Caricamento classi...");
         const csvRes = await fetch('classes.csv');
-        if (!csvRes.ok) throw new Error("Impossibile caricare classes.csv");
         const csvText = await csvRes.text();
-        fishClasses = csvText.split('\n')
-            .map(s => s.trim())
-            .filter(s => s !== "");
-        console.log("Classi caricate:", fishClasses.length);
+        fishClasses = csvText.split('\n').map(s => s.trim()).filter(s => s !== "");
 
-        // 2. Configurazione sessione ONNX
-        const sessionOptions = {
+        console.log("2. Scaricamento pesi (model.onnx.data)...");
+        // Scarichiamo prima i pesi per assicurarci che siano in cache
+        const dataRes = await fetch('./model/model.onnx.data');
+        if (!dataRes.ok) throw new Error("Impossibile trovare model.onnx.data");
+        const dataBuffer = await dataRes.arrayBuffer();
+
+        console.log("3. Scaricamento struttura (model.onnx)...");
+        const modelRes = await fetch('./model/model.onnx');
+        if (!modelRes.ok) throw new Error("Impossibile trovare model.onnx");
+        const modelBuffer = await modelRes.arrayBuffer();
+
+        console.log("4. Creazione sessione...");
+        // Configuriamo ONNX per usare i dati esterni forniti manualmente
+        session = await ort.InferenceSession.create(modelBuffer, {
             executionProviders: ['wasm'],
-            binarySizeLimit: 100 * 1024 * 1024 // Supporto fino a 100MB
-        };
+            externalData: [
+                {
+                    data: dataBuffer,
+                    path: "model.onnx.data" // Deve corrispondere al nome cercato dal modello
+                }
+            ]
+        });
 
-        console.log("Scaricamento modello (model.onnx)...");
-        
-        // Carichiamo il file .onnx come buffer per risolvere il problema dei file esterni (.data)
-        const modelResponse = await fetch('./model/model.onnx');
-        if (!modelResponse.ok) throw new Error("File model.onnx non trovato nella cartella /model");
-        const modelBuffer = await modelResponse.arrayBuffer();
-
-        // Creazione della sessione
-        // ONNX Runtime cercherà model.onnx.data nello stesso percorso relativo
-        session = await ort.InferenceSession.create(modelBuffer, sessionOptions);
-        
-        console.log("Modello ONNX caricato con successo!");
-        predictionDiv.innerText = "Sistema pronto per l'analisi.";
+        console.log("✅ Sistema pronto!");
+        predictionDiv.innerText = "Sistema pronto.";
     } catch (e) {
-        console.error("Errore durante l'inizializzazione:", e);
-        predictionDiv.innerText = "Errore critico: " + e.message;
+        console.error("Errore critico:", e);
+        predictionDiv.innerText = "Errore: " + e.message;
     }
 }
 
