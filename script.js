@@ -37,7 +37,7 @@ async function init() {
     }
 }
 
-// --- Logica di analisi (MODIFICATA) ---
+// --- Logica di analisi (CORRETTA) ---
 document.getElementById('predictBtn').addEventListener('click', async () => {
     if (!session) return;
     predictionDiv.innerText = "Analisi in corso...";
@@ -46,24 +46,24 @@ document.getElementById('predictBtn').addEventListener('click', async () => {
     try {
         const tensor = await preprocess(imagePreview);
         
-        // QUI C'È LA MODIFICA: abbiamo cambiato 'input' in 'x'
+        // MODIFICA: Usiamo 'x' come nome della chiave di input
         const feeds = { x: tensor }; 
         
         const results = await session.run(feeds);
         
-        // Cerchiamo l'output (solitamente si chiama 'output' o 'output_0')
-        const outputKey = Object.keys(results)[0]; 
+        // MODIFICA: Prendiamo il primo output disponibile, qualunque sia il suo nome
+        const outputKey = Object.keys(results)[0];
         const output = results[outputKey].data;
         
         const maxIdx = output.indexOf(Math.max(...output));
         const fishName = fishClasses[maxIdx] || "ID: " + maxIdx;
         
         predictionDiv.innerText = "Risultato: " + fishName;
-        console.log("Predizione completata:", fishName);
+        console.log("Predizione riuscita:", fishName);
 
     } catch (e) {
-        console.error("Errore durante l'analisi:", e);
-        predictionDiv.innerText = "Errore durante l'analisi: " + e.message;
+        console.error("Errore analisi:", e);
+        predictionDiv.innerText = "Errore: " + e.message;
     }
 });
 
