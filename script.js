@@ -10,35 +10,37 @@ const predictionDiv = document.getElementById('prediction');
 const resultContainer = document.getElementById('result-container');
 
 /**
- * Inizializzazione: Carica classi e modello.
- * Usa l'approccio arrayBuffer per evitare errori di caricamento dati esterni.
+ * Inizializzazione: Scarica classi, pesi (.data) e struttura (.onnx)
+ * per poi unirli manualmente nella sessione.
  */
 async function init() {
     try {
-        console.log("1. Caricamento classi...");
+        console.log("1. Caricamento nomi classi...");
         const csvRes = await fetch('classes.csv');
         const csvText = await csvRes.text();
         fishClasses = csvText.split('\n').map(s => s.trim()).filter(s => s !== "");
+        console.log("Classi caricate:", fishClasses.length);
 
         console.log("2. Scaricamento pesi (model.onnx.data)...");
-        // Scarichiamo prima i pesi per assicurarci che siano in cache
+        // Scarichiamo il file binario dei pesi
         const dataRes = await fetch('./model/model.onnx.data');
-        if (!dataRes.ok) throw new Error("Impossibile trovare model.onnx.data");
+        if (!dataRes.ok) throw new Error("Impossibile trovare model.onnx.data nella cartella /model");
         const dataBuffer = await dataRes.arrayBuffer();
 
         console.log("3. Scaricamento struttura (model.onnx)...");
+        // Scarichiamo il file della struttura
         const modelRes = await fetch('./model/model.onnx');
-        if (!modelRes.ok) throw new Error("Impossibile trovare model.onnx");
+        if (!modelRes.ok) throw new Error("Impossibile trovare model.onnx nella cartella /model");
         const modelBuffer = await modelRes.arrayBuffer();
 
-        console.log("4. Creazione sessione...");
-        // Configuriamo ONNX per usare i dati esterni forniti manualmente
+        console.log("4. Creazione sessione con dati esterni...");
+        // Configuriamo ONNX per iniettare i dati esterni scaricati
         session = await ort.InferenceSession.create(modelBuffer, {
             executionProviders: ['wasm'],
             externalData: [
                 {
                     data: dataBuffer,
-                    path: "model.onnx.data" // Deve corrispondere al nome cercato dal modello
+                    path: "model.onnx.data" // Deve corrispondere esattamente al nome nel log d'errore
                 }
             ]
         });
@@ -46,7 +48,7 @@ async function init() {
         console.log("✅ Sistema pronto!");
         predictionDiv.innerText = "Sistema pronto.";
     } catch (e) {
-        console.error("Errore critico:", e);
+        console.error("Errore critico durante l'inizializzazione:", e);
         predictionDiv.innerText = "Errore: " + e.message;
     }
 }
@@ -72,7 +74,7 @@ imageUpload.addEventListener('change', (e) => {
  */
 predictBtn.addEventListener('click', async () => {
     if (!session) {
-        alert("Il modello si sta ancora caricando. Attendi...");
+        alert("Il modello si sta ancora caricando. Attendi che appaia 'Sistema pronto'.");
         return;
     }
 
@@ -87,12 +89,12 @@ predictBtn.addEventListener('click', async () => {
         const feeds = { input: tensor };
         const results = await session.run(feeds);
         
-        // Estrazione risultati (usa 'output' come nome predefinito di PyTorch)
+        // Estrazione risultati
         const output = results.output.data;
         const maxIdx = argmax(output);
         
-        // Mostra il nome della specie dal CSV
-        const fishName = fishClasses[maxIdx] || "ID: " + maxIdx + " (Nome non in CSV)";
+        // Mostra il nome della specie
+        const fishName = fishClasses[maxIdx] || "ID: " + maxIdx + " (Nome non trovato)";
         predictionDiv.innerText = fishName;
         
     } catch (e) {
@@ -102,7 +104,7 @@ predictBtn.addEventListener('click', async () => {
 });
 
 /**
- * Pre-processing: Ridimensiona a 256x72 e normalizza i canali RGB
+ * Pre-processing: Ridimensiona a 256x72 e normalizza RGB
  */
 async function preprocess(imgElement) {
     const canvas = document.createElement('canvas');
