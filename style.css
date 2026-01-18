@@ -1,88 +1,85 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f0f4f8;
+    background-color: #f4f7f6;
     display: flex;
     justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    margin: 0;
+    padding: 20px;
 }
 
 .container {
     background: white;
-    padding: 2rem;
+    padding: 30px;
     border-radius: 15px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    text-align: center;
-    width: 90%;
     max-width: 500px;
+    width: 100%;
+    text-align: center;
 }
 
-h1 { color: #2c3e50; margin-bottom: 0.5rem; }
-p { color: #7f8c8d; }
+.hidden { display: none !important; }
 
-.btn-upload, .btn-predict {
-    display: inline-block;
-    padding: 12px 24px;
-    background-color: #3498db;
-    color: white;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.3s;
-    border: none;
-    font-size: 1rem;
-    margin-top: 1rem;
-}
-
-.btn-predict { background-color: #2ecc71; width: 100%; }
-.btn-upload:hover { background-color: #2980b9; }
-
-#preview-container img {
+#imagePreview {
     max-width: 100%;
     border-radius: 10px;
-    margin-top: 1.5rem;
-    border: 3px solid #ecf0f1;
+    margin: 20px 0;
 }
 
-.hidden { display: none; }
+/* --- NUOVO STILE BOTTONI --- */
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+button, .btn-upload {
+    display: inline-block;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-upload {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-predict {
+    background-color: #2ecc71;
+    color: white;
+    flex: 2;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+    flex: 1;
+}
+
+/* Stato Disabilitato: Grigio e non cliccabile */
+button:disabled {
+    background-color: #bdc3c7 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none !important;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+}
 
 #result-container {
-    margin-top: 2rem;
-    padding: 1rem;
-    background: #e8f6ef;
+    margin-top: 25px;
+    padding: 20px;
+    background-color: #ebf5fb;
     border-radius: 10px;
 }
 
 #prediction {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #27ae60;
-}
-
-/* Stile per il tasto Reset */
-#resetBtn {
-    background-color: #6c757d; /* Grigio professionale */
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-left: 10px;
-    transition: background-color 0.3s;
-}
-
-#resetBtn:hover {
-    background-color: #5a6268;
-}
-
-/* Stile dinamico per il testo della predizione */
-#prediction {
-    font-weight: bold;
-    transition: color 0.3s ease;
-}
-
-/* Effetto per il tasto disabilitato */
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    font-size: 1.4rem;
+    color: #2c3e50;
 }

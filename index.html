@@ -19,15 +19,16 @@
 
         <div id="preview-container" class="hidden">
             <img id="imagePreview" src="#" alt="Anteprima">
-            <canvas id="canvas" width="256" height="72" class="hidden"></canvas>
-            <button id="predictBtn" class="btn-predict">Analizza Specie</button>
-            <button id="resetBtn" class="btn-secondary">Nuova Analisi</button>
+            
+            <div class="button-group">
+                <button id="predictBtn" class="btn-predict" disabled>Analizza Specie</button>
+                <button id="resetBtn" class="btn-secondary">Nuova Analisi</button>
+            </div>
         </div>
 
         <div id="result-container" class="hidden">
-            <h3>Risultato:</h3>
-            <div id="prediction">Attendere...</div>
-            <div id="confidence"></div>
+            <h3>Esito Scansione:</h3>
+            <div id="prediction">In attesa del sistema...</div>
         </div>
     </div>
 
