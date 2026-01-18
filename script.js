@@ -12,16 +12,16 @@ async function init() {
         const csvText = await csvRes.text();
         fishClasses = csvText.split('\n').map(s => s.trim()).filter(s => s !== "");
 
-        console.log("2. Scaricamento file del modello (senza sottocartelle)...");
+        console.log("2. Scaricamento file dalla cartella /model...");
         
-        // Carichiamo i file dalla stessa cartella dello script
+        // Puntiamo alla sottocartella model
         const [modelRes, dataRes] = await Promise.all([
-            fetch('model.onnx'),
-            fetch('model.onnx.data')
+            fetch('./model/model.onnx'),
+            fetch('./model/model.onnx.data')
         ]);
 
         if (!modelRes.ok || !dataRes.ok) {
-            throw new Error(`File mancanti. Stato ONNX: ${modelRes.status}, Stato DATA: ${dataRes.status}`);
+            throw new Error(`File non trovati in /model. Status ONNX: ${modelRes.status}, Status DATA: ${dataRes.status}`);
         }
 
         const modelBuffer = await modelRes.arrayBuffer();
@@ -29,13 +29,13 @@ async function init() {
 
         console.log("3. Iniezione pesi e creazione sessione...");
         
-        // Questo risolve l'errore "Module.MountedFiles" caricando i pesi in memoria
+        // Usiamo externalData per risolvere l'errore MountedFiles (necessario per file .data)
         session = await ort.InferenceSession.create(new Uint8Array(modelBuffer), {
             executionProviders: ['wasm'],
             externalData: [
                 {
                     data: new Uint8Array(dataBuffer),
-                    path: "model.onnx.data" 
+                    path: "model.onnx.data" // Il nome che il file .onnx cerca internamente
                 }
             ]
         });
@@ -49,7 +49,7 @@ async function init() {
     }
 }
 
-// --- Analisi Immagine ---
+// --- Gestione Analisi ---
 document.getElementById('predictBtn').addEventListener('click', async () => {
     if (!session) {
         alert("Il modello non è ancora pronto!");
