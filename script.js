@@ -18,48 +18,46 @@ async function init() {
             fetch('./model/model.onnx.data')
         ]);
 
-        if (!modelRes.ok || !dataRes.ok) throw new Error("File non trovati in /model");
-
         const modelBuffer = await modelRes.arrayBuffer();
         const dataBuffer = await dataRes.arrayBuffer();
 
-        console.log("3. Iniezione dati e creazione sessione...");
+        console.log("3. Creazione sessione...");
         session = await ort.InferenceSession.create(new Uint8Array(modelBuffer), {
             executionProviders: ['wasm'],
             externalData: [{ data: new Uint8Array(dataBuffer), path: "model.onnx.data" }]
         });
 
+        // --- RIGA INVESTIGATIVA ---
+        console.log("Nomi input attesi dal modello:", session.inputNames); 
         console.log("✅ SISTEMA PRONTO!");
         predictionDiv.innerText = "Sistema pronto.";
     } catch (e) {
-        console.error("Errore critico:", e);
+        console.error("Errore:", e);
         predictionDiv.innerText = "Errore: " + e.message;
     }
 }
 
-// --- Logica di analisi (CORRETTA) ---
 document.getElementById('predictBtn').addEventListener('click', async () => {
     if (!session) return;
-    predictionDiv.innerText = "Analisi in corso...";
+    predictionDiv.innerText = "Analisi...";
     resultContainer.classList.remove('hidden');
 
     try {
         const tensor = await preprocess(imagePreview);
         
-        // MODIFICA: Usiamo 'x' come nome della chiave di input
-        const feeds = { x: tensor }; 
+        // Usiamo il primo nome di input che il modello ci dice di volere
+        const inputName = session.inputNames[0]; 
+        const feeds = {};
+        feeds[inputName] = tensor;
         
+        console.log("Invio dati all'input:", inputName);
+
         const results = await session.run(feeds);
-        
-        // MODIFICA: Prendiamo il primo output disponibile, qualunque sia il suo nome
-        const outputKey = Object.keys(results)[0];
+        const outputKey = session.outputNames[0];
         const output = results[outputKey].data;
         
         const maxIdx = output.indexOf(Math.max(...output));
-        const fishName = fishClasses[maxIdx] || "ID: " + maxIdx;
-        
-        predictionDiv.innerText = "Risultato: " + fishName;
-        console.log("Predizione riuscita:", fishName);
+        predictionDiv.innerText = "Risultato: " + (fishClasses[maxIdx] || "ID: " + maxIdx);
 
     } catch (e) {
         console.error("Errore analisi:", e);
@@ -79,19 +77,14 @@ async function preprocess(img) {
         g.push(data[i+1] / 255.0);
         b.push(data[i+2] / 255.0);
     }
-    const float32Data = new Float32Array([...r, ...g, ...b]);
-    return new ort.Tensor('float32', float32Data, [1, 3, 72, 256]);
+    return new ort.Tensor('float32', new Float32Array([...r, ...g, ...b]), [1, 3, 72, 256]);
 }
 
 document.getElementById('imageUpload').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = (ev) => { 
-            imagePreview.src = ev.target.result; 
-            document.getElementById('preview-container').classList.remove('hidden'); 
-            resultContainer.classList.add('hidden');
-        };
+        reader.onload = (ev) => { imagePreview.src = ev.target.result; document.getElementById('preview-container').classList.remove('hidden'); };
         reader.readAsDataURL(file);
     }
 });
