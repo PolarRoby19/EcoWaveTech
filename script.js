@@ -1,18 +1,29 @@
 let session;
 let fishClasses = [];
 
+// Elementi UI
 const predictionDiv = document.getElementById('prediction');
 const imagePreview = document.getElementById('imagePreview');
+const previewContainer = document.getElementById('preview-container');
 const resultContainer = document.getElementById('result-container');
+const predictBtn = document.getElementById('predictBtn');
+const imageUpload = document.getElementById('imageUpload');
 
+/**
+ * Inizializzazione con indicatore di caricamento
+ */
 async function init() {
     try {
+        predictBtn.disabled = true; // Disabilita il tasto finché non è pronto
+        predictionDiv.innerText = "⏳ Caricamento modelli in corso... attendere.";
+        predictionDiv.style.color = "#ff9800"; // Arancione durante l'attesa
+
         console.log("1. Caricamento classi...");
         const csvRes = await fetch('classes.csv');
         const csvText = await csvRes.text();
         fishClasses = csvText.split('\n').map(s => s.trim()).filter(s => s !== "");
 
-        console.log("2. Scaricamento file binari...");
+        console.log("2. Scaricamento pesi e struttura...");
         const [modelRes, dataRes] = await Promise.all([
             fetch('./model/model.onnx'),
             fetch('./model/model.onnx.data')
@@ -28,24 +39,29 @@ async function init() {
         });
 
         console.log("✅ SISTEMA PRONTO!");
-        predictionDiv.innerText = "Sistema pronto.";
+        predictionDiv.innerText = "✅ Sistema pronto. Carica un'immagine.";
+        predictionDiv.style.color = "#4caf50"; // Verde quando è pronto
+        predictBtn.disabled = false;
+
     } catch (e) {
-        console.error("Errore:", e);
-        predictionDiv.innerText = "Errore: " + e.message;
+        console.error("Errore inizializzazione:", e);
+        predictionDiv.innerText = "❌ Errore caricamento: " + e.message;
+        predictionDiv.style.color = "#f44336";
     }
 }
 
-document.getElementById('predictBtn').addEventListener('click', async () => {
+/**
+ * Logica di analisi
+ */
+predictBtn.addEventListener('click', async () => {
     if (!session) return;
     
-    // Reset estetico prima dell'analisi
-    predictionDiv.style.opacity = "0.3";
-    predictionDiv.innerText = "Analisi...";
+    predictionDiv.style.opacity = "0.5";
+    predictionDiv.innerText = "Analisi in corso...";
     resultContainer.classList.remove('hidden');
 
     try {
         const tensor = await preprocess(imagePreview);
-        
         const inputName = session.inputNames[0]; 
         const feeds = {};
         feeds[inputName] = tensor;
@@ -57,10 +73,8 @@ document.getElementById('predictBtn').addEventListener('click', async () => {
         const maxIdx = output.indexOf(Math.max(...output));
         const nomeSpecie = fishClasses[maxIdx] || "ID: " + maxIdx;
 
-        // Visualizzazione pulita (Solo il nome)
         predictionDiv.innerText = nomeSpecie;
-        
-        // Effetto Fade-in
+        predictionDiv.style.color = "#007bff";
         predictionDiv.style.transition = "opacity 0.5s";
         predictionDiv.style.opacity = "1";
 
@@ -71,6 +85,26 @@ document.getElementById('predictBtn').addEventListener('click', async () => {
     }
 });
 
+/**
+ * Funzione Reset (da aggiungere un tasto con id="resetBtn" nell'HTML se vuoi usarlo)
+ */
+function resetAll() {
+    imageUpload.value = "";
+    previewContainer.classList.add('hidden');
+    resultContainer.classList.add('hidden');
+    predictionDiv.innerText = "✅ Sistema pronto. Carica un'immagine.";
+    predictionDiv.style.color = "#4caf50";
+}
+
+// Se aggiungi <button id="resetBtn"> nell'HTML:
+const resetBtn = document.getElementById('resetBtn');
+if (resetBtn) {
+    resetBtn.addEventListener('click', resetAll);
+}
+
+/**
+ * Pre-processing
+ */
 async function preprocess(img) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -86,14 +120,17 @@ async function preprocess(img) {
     return new ort.Tensor('float32', new Float32Array([...r, ...g, ...b]), [1, 3, 72, 256]);
 }
 
-document.getElementById('imageUpload').addEventListener('change', (e) => {
+/**
+ * Upload immagine
+ */
+imageUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = (ev) => { 
             imagePreview.src = ev.target.result; 
-            document.getElementById('preview-container').classList.remove('hidden'); 
-            resultContainer.classList.add('hidden'); // Nasconde il vecchio risultato quando carichi una nuova foto
+            previewContainer.classList.remove('hidden'); 
+            resultContainer.classList.add('hidden');
         };
         reader.readAsDataURL(file);
     }
