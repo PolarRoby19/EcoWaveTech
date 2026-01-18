@@ -1,7 +1,7 @@
 let session;
 let fishClasses = [];
 
-// Elementi UI
+// Elementi dell'interfaccia utente
 const imageUpload = document.getElementById('imageUpload');
 const imagePreview = document.getElementById('imagePreview');
 const previewContainer = document.getElementById('preview-container');
@@ -9,84 +9,130 @@ const predictBtn = document.getElementById('predictBtn');
 const predictionDiv = document.getElementById('prediction');
 const resultContainer = document.getElementById('result-container');
 
-// 1. Carica Modello e Nomi Classi
+/**
+ * 1. Inizializzazione: Carica i nomi delle classi e il modello ONNX.
+ */
 async function init() {
     try {
-        // Carica i nomi dal CSV
-        const response = await fetch('classes.csv');
-        const data = await response.text();
-        fishClasses = data.split('\n').map(line => line.trim()).filter(line => line !== "");
+        console.log("Inizializzazione sistema...");
+
+        // Carica i nomi dal file CSV (nella stessa cartella di script.js)
+        const csvRes = await fetch('classes.csv');
+        const csvText = await csvRes.text();
+        fishClasses = csvText.split('\n')
+            .map(s => s.trim())
+            .filter(s => s !== "");
         
-        // Carica il modello ONNX
-        // Nota: ONNX cercherà automaticamente il file .data nella stessa cartella
+        console.log("Classi caricate:", fishClasses.length);
+
+        // Carica il modello ONNX dalla cartella 'model'
+        // NOTA: Il browser scaricherà automaticamente anche model.onnx.data 
+        // perché è collegato internamente al file .onnx
         session = await ort.InferenceSession.create('./model/model.onnx');
         
-        console.log("Sistema pronto. Classi caricate:", fishClasses.length);
+        console.log("Modello ONNX caricato con successo!");
     } catch (e) {
-        console.error("Errore inizializzazione:", e);
+        console.error("Errore durante l'inizializzazione:", e);
+        predictionDiv.innerText = "Errore nel caricamento del sistema.";
     }
 }
 
-// 2. Gestione Anteprima
-imageUpload.addEventListener('change', function() {
-    const file = this.files[0];
+/**
+ * 2. Gestione dell'anteprima dell'immagine caricata
+ */
+imageUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = e => {
-            imagePreview.src = e.target.result;
+        reader.onload = (event) => {
+            imagePreview.src = event.target.result;
             previewContainer.classList.remove('hidden');
-            resultContainer.classList.add('hidden');
+            resultContainer.classList.add('hidden'); // Nasconde risultati precedenti
         };
         reader.readAsDataURL(file);
     }
 });
 
-// 3. Analisi Immagine
+/**
+ * 3. Esecuzione della predizione al click sul pulsante
+ */
 predictBtn.addEventListener('click', async () => {
+    if (!session) {
+        alert("Il modello non è ancora pronto. Attendi qualche secondo.");
+        return;
+    }
+
     predictionDiv.innerText = "Analisi in corso...";
     resultContainer.classList.remove('hidden');
-    
+
     try {
-        const inputTensor = await preprocess(imagePreview);
-        const feeds = { input: inputTensor };
+        // Pre-processing dell'immagine per adattarla al modello (1, 3, 72, 256)
+        const tensor = await preprocess(imagePreview);
+        
+        // Esecuzione dell'inferenza
+        const feeds = { input: tensor };
         const results = await session.run(feeds);
         
-        // L'output del tuo modello si chiama solitamente 'output'
-        // Se dà errore, prova a stampare 'console.log(results)' per vedere il nome esatto
-        const output = results.output.data; 
-        const maxIndex = argmax(output);
+        // Estrazione dei risultati (il nome 'output' deve corrispondere all'export ONNX)
+        const output = results.output.data;
+        const maxIdx = argmax(output);
         
-        const fishName = fishClasses[maxIndex] || "Specie sconosciuta";
-        predictionDiv.innerText = fishName;
+        // Visualizzazione del nome della specie
+        const specieIdentificata = fishClasses[maxIdx] || "Specie non riconosciuta (ID: " + maxIdx + ")";
+        predictionDiv.innerText = specieIdentificata;
         
+        console.log("Risultato analisi:", specieIdentificata);
     } catch (e) {
-        predictionDiv.innerText = "Errore durante l'analisi.";
-        console.error(e);
+        console.error("Errore durante la predizione:", e);
+        predictionDiv.innerText = "Errore durante l'analisi dell'immagine.";
     }
 });
 
-// 4. Pre-processing (Resize 256x72 + Normalizzazione)
+/**
+ * 4. Trasforma l'immagine in un Tensor Float32 [1, 3, 72, 256]
+ */
 async function preprocess(imgElement) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 72;
-    ctx.drawImage(imgElement, 0, 0, 256, 72);
     
-    const imageData = ctx.getImageData(0, 0, 256, 72).data;
-    const r = [], g = [], b = [];
+    // Dimensioni richieste dal tuo modello specifico
+    const targetWidth = 256;
+    const targetHeight = 72;
+    
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    
+    // Disegna l'immagine ridimensionandola nel canvas
+    ctx.drawImage(imgElement, 0, 0, targetWidth, targetHeight);
+    
+    // Estrae i dati dei pixel (RGBA)
+    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight).data;
 
-    for (let i = 0; i < imageData.length; i += 4) {
-        r.push(imageData[i] / 255.0);
-        g.push(imageData[i + 1] / 255.0);
-        b.push(imageData[i + 2] / 255.0);
+    // Normalizzazione e separazione dei canali (Format: NCHW -> 1, 3, 72, 256)
+    const red = new Float32Array(targetWidth * targetHeight);
+    const green = new Float32Array(targetWidth * targetHeight);
+    const blue = new Float32Array(targetWidth * targetHeight);
+
+    for (let i = 0, j = 0; i < imageData.length; i += 4, j++) {
+        red[j] = imageData[i] / 255.0;     // R
+        green[j] = imageData[i + 1] / 255.0; // G
+        blue[j] = imageData[i + 2] / 255.0; // B
+        // imageData[i + 3] è il canale Alpha, che scartiamo
     }
 
-    return new ort.Tensor('float32', new Float32Array([...r, ...g, ...b]), [1, 3, 72, 256]);
+    // Combina i canali in un unico array Float32
+    const combinedData = new Float32Array([...red, ...green, ...blue]);
+    
+    // Crea il Tensor finale
+    return new ort.Tensor('float32', combinedData, [1, 3, targetHeight, targetWidth]);
 }
 
+/**
+ * Trova l'indice del valore massimo in un array
+ */
 function argmax(array) {
     return array.indexOf(Math.max(...array));
 }
 
+// Avvia il caricamento
 init();
